@@ -56,6 +56,9 @@
                  1,1,1,
                  0,0,0];
 
+        // Array containing all tetrominos
+        let tetrominos = [ A, B, C, D, E, F, G ];
+
         // Reset well to all 0's
         for (let y = 0; y < width; y++)
             well[y] = new Array( height ).fill(0);
@@ -128,6 +131,7 @@
             }
         }
 
+        // lightmap to be pasted around the tetromino as it falls
         let light = { x: 0, y: 0 };
         let light_mask = [
             0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -146,6 +150,7 @@
             0,0,0,0,0,0,0,0,0,0,0,0,0,0,
         ];
 
+        // draw the lightmap
         function draw_light() {
             let index = 0;
             for (let y = 0; y < 14; y++) {
@@ -170,8 +175,9 @@
             }
         }
 
-        let tetrominos = [ A, B, C, D, E, F, G ];
+        // current tetromino position
         let position = {x: (width / 2) - 1, y: -3};
+
         let current = [0,0,0, 0,0,0, 0,0,0];
         let next    = [0,0,0, 0,0,0, 0,0,0];
 
