@@ -1,0 +1,520 @@
+<head>
+    <script type="module">
+
+    /*
+        This is from my medium article: "Tetris Turns 35"
+
+        Fork at your own will!
+
+        Background:
+
+        On June 6, 2019 Tetris turned 35 years old. To celebrate,
+        I wrote my own version and published it in my GitHub repo.
+        No libraries. No frameworks. Just JavaScript. And no, this
+        is not the best way, nor is it most-optimized version. It's
+        just a simple break down. Note: Tetris was created by
+        Alexey Pajitnov - a Russian software developer.
+
+    */
+
+        let color = { background: "#5c2a3b",
+                            wall: "#d83c66",
+                           solid: "#49b5ab",
+                       tetromino: "#e97539"};
+
+        let width = 52;
+        let height = 36;
+        let well = new Array(height);
+        let fog = new Array(height);
+        const square_size = 8;
+
+        let A = [0,0,1,
+                 0,0,1,
+                 0,1,1];
+
+        let B = [1,0,0,
+                 1,0,0,
+                 1,1,0];
+
+        let C = [0,0,0,
+                 0,1,0,
+                 1,1,1];
+
+        let D = [0,0,0,
+                 0,1,1,
+                 1,1,0];
+
+        let E = [0,0,0,
+                 1,1,0,
+                 0,1,1];
+
+        let F = [1,1,0,
+                 1,1,0,
+                 0,0,0];
+
+        let G = [0,0,0,
+                 1,1,1,
+                 0,0,0];
+
+        // Reset well to all 0's
+        for (let y = 0; y < width; y++)
+            well[y] = new Array( height ).fill(0);
+
+        // Mark bottom
+        for (let x = 0; x < width; x++)
+            well[x][height - 1] = 2;
+
+        // Mark walls
+        for (let y = 0; y < height; y++) {
+            well[0][y] = 1;
+            well[width - 1][y] = 1;
+        }
+
+        // fog
+        for (let y = 0; y < height; y++)
+            fog[y] = new Array( height ).fill(0);
+
+
+        // Generate well
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                let square = document.createElement("div");
+                square.setAttribute("id", "square_x" + x + "y" + y);
+                square.style.position = "absolute";
+                square.style.left = x * square_size + "px";
+                square.style.top = y * square_size + "px";
+                square.style.width = square_size + "px";
+                square.style.height = square_size + "px";
+                square.style.zIndex = 0;
+                let block_type = well[x][y];
+                if (block_type == 0) square.style.background = color.background;
+                if (block_type == 1) square.style.background = color.wall;
+                if (block_type == 2) square.style.background = color.wall;
+                document.body.appendChild(square);
+            }
+        }
+
+        // Generate fog
+        for (let x = 0; x < width; x++) {
+            for (let y = 0; y < height; y++) {
+                let square = document.createElement("div");
+                square.setAttribute("id", "fog_x" + x + "y" + y);
+                square.style.position = "absolute";
+                square.style.display = "block";
+                square.style.left = x * square_size + "px";
+                square.style.top = y * square_size + "px";
+                square.style.width = square_size + "px";
+                square.style.height = square_size + "px";
+                square.style.zIndex = 1;
+                let block_type = well[x][y];
+                square.style.background = "black";
+                document.body.appendChild(square);
+            }
+        }
+
+        // Create "next" placeholder
+        let index = 0;
+        for (let y = 0; y < 3; y++) {
+            for (let x = 0; x < 3; x++, index++) {
+                let square = document.createElement("div");
+                square.setAttribute("id", "next_" + index);
+                square.style.position = "absolute";
+                square.style.left = 455 + (x * square_size) + "px";
+                square.style.top = 0 + y * square_size + "px";
+                square.style.width = square_size + "px";
+                square.style.height = square_size + "px";
+                square.style.background = color.background;
+                document.body.appendChild(square);
+            }
+        }
+
+        let light = { x: 0, y: 0 };
+        let light_mask = [
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,4,4,0,0,0,0,0,0,
+            0,0,0,2,3,4,5,5,4,3,2,0,0,0,
+            0,0,2,3,4,5,6,6,5,4,3,2,0,0,
+            0,2,3,4,5,6,7,7,6,5,4,3,2,0,
+            0,3,4,5,6,7,8,8,7,6,5,4,3,0,
+            0,4,5,6,7,8,9,9,8,7,6,5,4,0,
+            0,4,5,6,7,8,9,9,8,7,6,5,4,0,
+            0,3,4,5,6,7,8,8,7,6,5,4,3,0,
+            0,2,3,4,5,6,7,7,6,5,4,3,2,0,
+            0,0,2,3,4,5,6,6,5,4,3,2,0,0,
+            0,0,0,2,3,4,5,5,4,3,2,0,0,0,
+            0,0,0,0,0,0,4,4,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        ];
+
+        function draw_light() {
+            let index = 0;
+            for (let y = 0; y < 14; y++) {
+                for (let x = 0; x < 14; x++, index++) {
+                    let posx = x + position.x;
+                    let posy = y + position.y;
+                    let square = document.getElementById("fog_x" + (posx - 6) + "y" + (posy - 6));
+                    if (square) {
+                        let type = light_mask[index];
+                        if (type == 9) square.style.opacity = '0';
+                        if (type == 8) square.style.opacity = '0.1';
+                        if (type == 7) square.style.opacity = '0.2';
+                        if (type == 6) square.style.opacity = '0.3';
+                        if (type == 5) square.style.opacity = '0.4';
+                        if (type == 4) square.style.opacity = '0.5';
+                        if (type == 3) square.style.opacity = '0.7';
+                        if (type == 2) square.style.opacity = '0.8';
+                        if (type == 1) square.style.opacity = '0.9';
+                        if (type == 0) square.style.opacity = '1.0';
+                    }
+                }
+            }
+        }
+
+        let tetrominos = [ A, B, C, D, E, F, G ];
+        let position = {x: (width / 2) - 1, y: -3};
+        let current = [0,0,0, 0,0,0, 0,0,0];
+        let next    = [0,0,0, 0,0,0, 0,0,0];
+
+        // Select next tetromino
+        function make_random() {
+            // Select random tetromino
+            let index = Math.floor((Math.random() * tetrominos.length));
+            // Copy tetromino into current array (avoid reference assignment)
+            return [...tetrominos[ index ]];
+        }
+
+        // Update "next" box
+        function update_next() {
+            for (let i = 0; i < 9; i++) {
+                let square = document.getElementById("next_" + i);
+                next[i] == 1 ? square.style.backgroundColor = color.tetromino :
+                square.style.backgroundColor = color.background;
+            }
+        }
+
+        function reset() {
+            paste();                // paste current tetromino onto the well
+            clear_row();            // clear rows if any
+            current = [...next];    // swap current and next tetromino
+            next = make_random();   // generate next tetromino
+            update_next();          // Update "next" box
+
+            // reset current position to top and middle of the well
+            position.x = parseInt(width/2) - 1;
+            position.y = -3;
+
+            reset_fog();
+        }
+
+        function reset_fog() {
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    let square = document.getElementById("fog_x" + x + "y" + y);
+                    if (square)
+                        square.style.opacity = 1;
+                }
+            }
+        }
+
+        let test = false;
+        window.onload = function() {
+
+            setInterval( (T) => { process_highlights() }, 3 );
+
+            current = make_random();
+            next = make_random();
+            update_next();
+
+            // Animation
+            setInterval(() => {
+
+                erase();
+
+                //fall();
+
+                draw();
+
+                draw_light();
+
+            }, 15);
+
+            // Keyboard input
+            document.addEventListener("keydown", (e) => {
+
+                let key_code = e.keyCode;
+
+                erase();
+
+                // Left
+                if (key_code == 37) {
+                    if (will_collide(dir.LEFT)) {
+                        reset();
+                    } else position.x -= 1
+                }
+
+                // Right
+                if (key_code == 39) {
+                    if (will_collide(dir.RIGHT)) {
+                        reset();
+                    } else position.x += 1
+                }
+
+                // Down
+                if (key_code == 40) {
+                    if (will_collide(dir.DOWN)) {
+                        reset();
+                    } else position.y += 1
+                }
+
+                if (key_code == 38) { position.y -= 1 }
+
+                // Rotate
+                if (key_code == 90) { rotate_left() }
+                if (key_code == 88) { rotate_right(); }
+
+                draw();
+
+            });
+
+        }
+
+        // "paste" current block onto the well
+        function paste() {
+            let index = 0;
+            if (position.x >= 0 && position.x <= width - 1) {
+                if (position.y >= -3 && position.y <= height - 1) {
+                    for (let y = position.y; y < position.y + 3; y++) {
+                        for (let x = position.x; x < position.x + 3; x++, index++) {
+                            if (current[index] == 1) {
+                                let square = document.getElementById("square_x" + x + "y" + y);
+                                if (square) {
+                                    well[x][y] = 3;
+                                    square.style.backgroundColor = color.solid;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function erase() {
+            let index = 0;
+            if (position.x >= 0 && position.x <= width - 1) {
+                if (position.y >= -3 && position.y <= height - 1) {
+                    for (let y = position.y; y < position.y + 3; y++) {
+                        for (let x = position.x; x < position.x + 3; x++, index++) {
+                            if (current[index] == 1) {
+                                let square = document.getElementById("square_x" + x + "y" + y);
+                                if (square) {
+                                    if (true) { // well[x] && well[y]
+                                        well[x][y] = 0;
+                                        if (x == 0 || x == width - 1 ) { } else {
+                                            square.style.backgroundColor = color.background;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // scan a horizontal row and count the number of solid squares on it
+        function scan_row(y) {
+
+            let row_data = [];
+
+            let total = 0;
+
+            for (let x = 0; x < width; x++) {
+                row_data[x] = well[x][y]; // copy this row
+                if (well[x][y] != 0) total++; // count non-empty (solid) squares only
+            }
+
+            return [total, row_data];
+        }
+
+        // check if a row needs to be cleared
+        function clear_row() {
+
+            // placeholder for new rows
+            let placeholder = [];
+
+            // how many rows cleared?
+            let rows_cleared = 0;
+
+            // scan the well one row at a time and capture any non-filled rows in placeholder
+            // (except the last row)
+            for (let y = 0; y < height - 1; y++) {
+                let start = y * width;
+                let scanned = scan_row(y);
+                let total = scanned[0];
+                let row_data = scanned[1];
+                // skip all horizontal rows that are completely filled
+                if (total != width) {
+                    // memorize only uncleared rows
+                    let len = placeholder.length;
+                    placeholder[len] = row_data;
+                } else {
+                    start_highlight(y);
+                    rows_cleared++;
+                }
+            }
+
+            console.log("rows_cleared = ", rows_cleared);
+            console.log("placeholder = ");
+            console.log(placeholder);
+
+            // if at least one row was cleared, update the well
+            if (rows_cleared > 0) {
+                // clear the well, except last row (well's bottom)
+                for (let y = 0; y < height - 1; y++) {
+                    // clear all except walls ([0] and [width - 1])
+                    for (let x = 1; x < width - 1; x++) {
+                        well[x][y] = 0;
+                        // paint empty square
+                        let square = document.getElementById("square_x" + x + "y" + y);
+                        if (square) square.style.backgroundColor = color.background;
+                    }
+                }
+
+                // paste captured placeholder rows onto the well from bottom up
+                let r = height - 2;
+                for (let i = placeholder.length - 1; i > 0; i--) {
+                    let row = placeholder[i];
+                    console.log("placeholder[" + i + "]", row);
+                    for (let x = 0; x < width; x++) {
+                        if (row[x] != 0) {
+                             well[x][r] = 3;
+                            if (x != 0 && x != width - 1) {
+                                let square = document.getElementById("square_x" + x + "y" + r);
+                                if (square) square.style.backgroundColor = color.solid;
+                            }
+                        }
+                    }
+                    r--;
+                }
+                console.log("well = ");
+                console.log(well);
+            }
+        }
+
+        function draw() {
+            let index = 0;
+            if (position.x >= 0 && position.x <= width - 1) {
+                if (position.y >= -3 && position.y <= height - 1) {
+                    for (let y = position.y; y < position.y + 3; y++) {
+                        for (let x = position.x; x < position.x + 3; x++, index++) {
+                            if (current[index] == 1) {
+                                let square = document.getElementById("square_x" + x + "y" + y);
+                                if (square) {
+                                    if (true) { // well[x] && well[y]
+                                        square.style.backgroundColor = color.tetromino;
+                                        // Don't erase walls
+                                        if (x == 0 || x == width - 1 || y == height - 1) {
+                                            square.style.backgroundColor = "red";
+                                        } else {
+                                            well[x][y] = 2;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        const dir = { LEFT: 0, RIGHT: 1, DOWN: 2 };
+
+        function will_collide(direction) {
+            let posx = position.x;
+            let posy = position.y;
+            if (direction == dir.LEFT) posx--;
+            if (direction == dir.RIGHT) posx++;
+            if (direction == dir.DOWN) posy++;
+            let index = 0;
+            if (posx >= 0 && posx <= width - 1) {
+                if (posy >= -3 && posy <= height - 1) {
+                    for (let y = posy; y < posy + 3; y++) {
+                        for (let x = posx; x < posx + 3; x++, index++) {
+                            if (current[index] == 1) {
+                                let square = document.getElementById("square_x" + x + "y" + y);
+                                if (square) {
+                                    // if (well[x] && well[y]) {
+                                        if (well[x][y] == 3 || well[x][y] == 1 || x == 0 || x == width - 1 || y == height - 1)
+                                            return true;
+                                    // }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        function fall() {
+            position.y += 1;
+        }
+
+        function rotate_left() {
+            let copy = [...current];
+            let map = [2,5,8,1,4,7,0,3,6];
+            current.fill(0);
+            for (let i = 0; i < 9; i++)
+                current[i] = copy[map[i]];
+        }
+
+        function rotate_right() {
+            let copy = [...current];
+            let map = [6,3,0,7,4,1,8,5,2];
+            current.fill(0);
+            for (let i = 0; i < 9; i++)
+                current[i] = copy[map[i]];
+        }
+
+        // create a highlight for each height level
+        let highlights = [];
+        for (let i = 0; i < height - 1; i++) {
+            highlights[i] = { state: 1, opacity: 1.0 };
+            let highlight = document.createElement("div");
+            highlight.setAttribute("id", "highlight_" + i);
+            highlight.style.position = "absolute";
+            highlight.style.left = square_size + "px";
+            highlight.style.top = i * square_size + "px";
+            highlight.style.width = (square_size * width) - (square_size * 2) + "px";
+            highlight.style.height = square_size + "px";
+            highlight.style.zIndex = 1;
+            highlight.style.pointerEvents = "none";
+            highlight.style.opacity = highlights[i].opacity;
+            highlight.style.background = "white";
+            document.body.appendChild( highlight );
+        }
+
+        function start_highlight(i) {
+            highlights[i] = { state: 1, opacity: 1 };
+        }
+
+        function process_highlights() {
+            for (let i = 0; i < height; i++) {
+                if (highlights[i])
+                if (highlights[i].state == 1) {
+                    if (highlights[i].opacity > 0.0) {
+                        highlights[i].opacity -= 0.01;
+                        if (document.getElementById("highlight_" + i))
+                            document.getElementById("highlight_" + i).style.opacity = highlights[i].opacity;
+                    } else { // reset this highlight
+                        highlights[i].state = 0;
+                        highlights[i].opacity = 0;
+                    }
+                }
+            }
+        }
+
+    </script>
+</head>
+
+<body style = "display: block; position: relative; background: black; margin-left: 100px; margin-top: 50px;"></body>
