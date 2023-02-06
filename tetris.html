@@ -266,11 +266,12 @@
                     } else position.y += 1
                 }
 
+                // Up
                 if (key_code == 38) { position.y -= 1 }
 
                 // Rotate
-                if (key_code == 90) { rotate_left() }
-                if (key_code == 88) { rotate_right(); }
+                if (key_code == 90) { rotate_left() } // z
+                if (key_code == 88) { rotate_right(); } // x
 
                 draw();
 
